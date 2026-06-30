@@ -108,8 +108,8 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00.../B00.../xxxx
 
 ```
 ┌─────────────┐
-│  GitHub      │  Cron: 0 6 * * * (daily at 06:00 UTC)
-│  Actions     │──────────────────────────────────────┐
+│  GitHub     │  Cron: 0 6 * * * (daily at 06:00 UTC)
+│  Actions    │──────────────────────────────────────┐
 └─────────────┘                                       │
                                                       ▼
                                               ┌───────────────┐
@@ -124,14 +124,14 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00.../B00.../xxxx
                                               │
                                               ▼
                                      ┌─────────────────┐
-                                     │  SQLite Dedup    │
-                                     │  (seen_datasets) │
+                                     │  SQLite Dedup   │
+                                     │  (seen_datasets)│
                                      └────────┬────────┘
                                               │ new only
                                               ▼
                                      ┌─────────────────┐
-                                     │  Slack Alert     │
-                                     │  (batched)       │
+                                     │  Slack Alert    │
+                                     │  (batched)      │
                                      └─────────────────┘
 ```
 
