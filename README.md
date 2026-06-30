@@ -60,16 +60,15 @@ On the first run, it scans the last **60 days**. Subsequent runs only look for d
 
 ## Setup Guide
 
-### Kaggle API Key
+### Kaggle API Token
 
 1. Go to [kaggle.com/settings](https://www.kaggle.com/settings)
 2. Scroll to the **API** section
-3. Click **"Create New Token"** — this downloads `kaggle.json`
-4. Open it and copy `username` and `key` into your `.env`:
+3. Click **"Generate New Token"** under the token settings (or generate an API token).
+4. Copy the API token and add it to your `.env`:
 
 ```
-KAGGLE_USERNAME=your_username
-KAGGLE_KEY=your_api_key
+KAGGLE_API_TOKEN=your_kaggle_api_token
 ```
 
 ### Slack Webhook
@@ -91,13 +90,17 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00.../B00.../xxxx
 
 | Secret Name | Value |
 |---|---|
-| `KAGGLE_USERNAME` | Your Kaggle username |
-| `KAGGLE_KEY` | Your Kaggle API key |
+| `KAGGLE_API_TOKEN` | Your Kaggle API token |
 | `SLACK_WEBHOOK_URL` | Your Slack webhook URL |
 
-4. The workflow runs automatically at **06:00 UTC daily** and can also be triggered manually from the **Actions** tab.
+4. Configure Workflow Permissions (Crucial for database persistence):
+   - Go to **Settings → Actions → General**.
+   - Under **Workflow permissions**, check **Read and write permissions**.
+   - Click **Save**.
 
-> **Important:** The workflow commits the updated `datasets_state.db` back to the repo after each run. This is what gives the agent its "memory" across runs.
+5. The workflow runs automatically at **06:00 UTC daily** and can also be triggered manually from the **Actions** tab.
+
+> **Important:** The workflow commits the updated `datasets_state.db` back to the repo after each run. This requires the "Read and write permissions" enabled above so the agent doesn't suffer from memory loss across runs.
 
 ---
 
