@@ -16,22 +16,79 @@ from typing import Optional
 # ──────────────────────────────────────────────
 # Ordered by specificity (most specific first so "fMRI" matches before "MRI")
 MODALITY_PATTERNS: list[tuple[str, str]] = [
-    (r"\bfMRI\b", "fMRI"),
+    # MRI & Subtypes
+    (r"\bfMRI\b|\bfunctional\s*mri\b", "fMRI"),
+    (r"\bsMRI\b|\bstructural\s*mri\b", "sMRI"),
+    (r"\bdMRI\b|\bdiffusion\s*mri\b", "dMRI"),
+    (r"\bDTI\b|\bdiffusion\s*tensor\b", "DTI"),
+    (r"\bMR\s*Angiograph", "MR Angiography"),
     (r"\bMRI\b|\bmagnetic\s*resonance\b", "MRI"),
-    (r"\bCT\s*scan\b|\bcomputed\s*tomography\b|\bCT\b", "CT Scan"),
-    (r"\bPET\s*scan\b|\bpositron\s*emission\b|\bPET[/-]CT\b", "PET Scan"),
-    (r"\bX[-\s]?ray\b|\bradiograph\b", "X-ray"),
-    (r"\bultrasound\b|\bsonograph\b|\bechocardiograph\b", "Ultrasound"),
+    
+    # CT & Subtypes
+    (r"\bCBCT\b|\bcone\s*beam\b", "CBCT"),
+    (r"\bmicro[-]?CT\b", "Micro-CT"),
+    (r"\bCT\s*scan\b|\bcomputed\s*tomography\b|\bCAT\s*scan\b|\bCT\b", "CT"),
+    
+    # PET & Subtypes
+    (r"\bFDG[-]?PET\b", "FDG-PET"),
+    (r"\bPET[-/]?CT\b", "PET-CT"),
+    (r"\bPET[-/]?MRI\b", "PET-MRI"),
+    (r"\bPET\s*scan\b|\bpositron\s*emission\b|\bPET\b", "PET"),
+    
+    # X-Ray & Subtypes
+    (r"\bmammogra\b|\bbreast\s*imag", "Mammography"),
+    (r"\bDEXA\b|\bbone\s*densitom", "DEXA"),
+    (r"\bfluoroscop", "Fluoroscopy"),
+    (r"\bX[-\s]?ray\b|\bradiograph", "X-ray"),
+    
+    # Ultrasound & Subtypes
+    (r"\bechocardiograph|\becho\b", "Echocardiography"),
+    (r"\bdoppler\b", "Doppler Ultrasound"),
+    (r"\bPOCUS\b|\bpoint[- ]of[- ]care", "POCUS"),
+    (r"\bIVUS\b|\bintravascular", "IVUS"),
+    (r"\bultrasound\b|\bsonograph", "Ultrasound"),
+    
+    # OCT & Subtypes
+    (r"\bOCTA\b|\boct\s*angiograph", "OCTA"),
+    (r"\bSD[-]?OCT\b|\bspectral\s*domain", "SD-OCT"),
+    (r"\bSS[-]?OCT\b|\bswept\s*source", "SS-OCT"),
     (r"\bOCT\b|\boptical\s*coherence\b", "OCT"),
-    (r"\bhistopath\b|\bpathology\b|\bH\s*&\s*E\b|\bWSI\b|\bwhole\s*slide\b", "Histopathology"),
-    (r"\bmammogra\b|\bbreast\s*imag\b", "Mammography"),
-    (r"\bendoscop\b|\bcolonoscop\b|\bgastroscop\b", "Endoscopy"),
-    (r"\bangiograph\b|\bvessel\b", "Angiography"),
-    (r"\bdermoscop\b|\bskin\s*lesion\b|\bmelanoma\b", "Dermoscopy"),
-    (r"\bDICOM\b", "DICOM"),
-    (r"\bmicroscop\b|\bcell\s*imag\b", "Microscopy"),
-    (r"\bretina\b|\bfundus\b|\boptic\s*disc\b", "Retinal Imaging"),
-    (r"\bdental\b|\bpanoramic\b|\bcephalometr\b", "Dental Imaging"),
+    
+    # Endoscopy & Subtypes
+    (r"\bcolonoscop", "Colonoscopy"),
+    (r"\bgastroscop", "Gastroscopy"),
+    (r"\blaparoscop", "Laparoscopy"),
+    (r"\bbronchoscop", "Bronchoscopy"),
+    (r"\bcystoscop", "Cystoscopy"),
+    (r"\brhinoscop", "Rhinoscopy"),
+    (r"\benteroscop", "Enteroscopy"),
+    (r"\bendoscop", "Endoscopy"),
+    
+    # Retinal & Eye Imaging
+    (r"\bfluorescein\s*angiograph|\bFA\b", "Fluorescein Angiography"),
+    (r"\bultra[- ]?widefield", "Ultra-widefield Fundus"),
+    (r"\bcolor\s*fundus", "Color Fundus"),
+    (r"\bfundus", "Fundus"),
+    (r"\bretina", "Retinal Image"),
+    
+    # Microscopy
+    (r"\belectron\s*microscop|\bSEM\b|\bTEM\b", "Electron Microscopy"),
+    (r"\bconfocal", "Confocal Microscopy"),
+    (r"\bfluorescent\s*microscop", "Fluorescent Microscopy"),
+    (r"\bmicroscop|\bcell\s*imag", "Microscopy"),
+    
+    # Pathology & Subtypes
+    (r"\bhistopath", "Histopathology"),
+    (r"\bcytopath", "Cytopathology"),
+    (r"\bdigital\s*patholog", "Digital Pathology"),
+    (r"\bWSI\b|\bwhole\s*slide", "Whole Slide Imaging"),
+    (r"\bH\s*&\s*E\b|\bhematoxylin", "H&E"),
+    (r"\bIHC\b|\bimmunohistochem", "Immunohistochemistry"),
+    (r"\bpatholog", "Pathology"),
+    
+    # Dermoscopy
+    (r"\bepiluminescence", "Epiluminescence Microscopy"),
+    (r"\bdermoscop|\bdermatoscop|\bskin\s*lesion|\bmelanoma\b", "Dermoscopy"),
 ]
 
 # ──────────────────────────────────────────────
@@ -104,6 +161,10 @@ def compute_relevance(title: str, platform: str = "") -> int:
       - Each dataset signal keyword:       +10 (capped at 30)
       - Each medical signal keyword:       +8  (capped at 24)
       - PubMed platform bonus:             +6  (these are always medical)
+      
+    Strict Filtering:
+      - A dataset signal is REQUIRED. If 0 dataset keywords are found, the
+        maximum possible score is capped below RELEVANCE_THRESHOLD.
     """
     score = 0
     text = title.lower()
@@ -132,6 +193,10 @@ def compute_relevance(title: str, platform: str = "") -> int:
     # Platform bonus (PubMed results are inherently medical)
     if platform.lower() in ("pubmed", "pmc"):
         score += 6
+        
+    # Strict Dataset Requirement Filter
+    if dataset_hits == 0:
+        return min(score, RELEVANCE_THRESHOLD - 1)
 
     return min(score, 100)
 

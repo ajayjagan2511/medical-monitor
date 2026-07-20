@@ -10,7 +10,7 @@ An automated Python agent that scans **Kaggle**, **Hugging Face**, **Zenodo**, a
 ## Features
 
 - **Multi-platform scanning** — queries 4 major data repositories in a single run
-- **17 medical imaging keywords** — covers MRI, CT, X-ray, histopathology, DICOM, mammography, and more
+- **Targeted medical imaging keywords** — focuses exclusively on datasets for CT, Dermoscopy, Endoscopy, Fundus, Microscopy, MRI, OCT, OCTA, Ultrasound, X-Ray, Pathology, PET, Retinal image, Rhinoscopy, Histopathology, and Bronchoscopy (excludes non-dataset research papers).
 - **Deduplication** — SQLite-backed memory prevents repeat alerts across runs
 - **Batched Slack alerts** — one clean message per run, grouped by platform
 - **Resilient** — if one platform is down, the others still run
