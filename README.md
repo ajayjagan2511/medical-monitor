@@ -1,6 +1,6 @@
 # 🏥 Medical Image Dataset Monitor
 
-An automated Python agent that scans **Kaggle**, **Hugging Face**, **Zenodo**, and **PubMed** daily for newly published medical image datasets and sends consolidated alerts to Slack.
+An automated Python agent that scans **Kaggle**, **Hugging Face**, **Zenodo**, **PubMed**, **TCIA**, **Synapse**, and **Grand Challenge** daily for newly published medical image datasets and sends consolidated alerts to Slack.
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
@@ -9,7 +9,7 @@ An automated Python agent that scans **Kaggle**, **Hugging Face**, **Zenodo**, a
 
 ## Features
 
-- **Multi-platform scanning** — queries 4 major data repositories in a single run
+- **Multi-platform scanning** — queries **7 major data repositories** in a single run
 - **Targeted medical imaging keywords** — focuses exclusively on datasets for CT, Dermoscopy, Endoscopy, Fundus, Microscopy, MRI, OCT, OCTA, Ultrasound, X-Ray, Pathology, PET, Retinal image, Rhinoscopy, Histopathology, and Bronchoscopy (excludes non-dataset research papers).
 - **Deduplication** — SQLite-backed memory prevents repeat alerts across runs
 - **Batched Slack alerts** — one clean message per run, grouped by platform
@@ -28,7 +28,10 @@ main.py                     ← Orchestrator
     ├── kaggle_scraper.py   ← Official Kaggle API
     ├── huggingface_scraper.py ← HF REST API
     ├── zenodo_scraper.py   ← Zenodo REST API
-    └── pubmed_scraper.py   ← NCBI E-Utilities
+    ├── pubmed_scraper.py   ← NCBI E-Utilities
+    ├── tcia_scraper.py     ← TCIA Collection Manager API v2 (no auth)
+    ├── synapse_scraper.py  ← Synapse REST API (requires PAT)
+    └── grandchallenge_scraper.py ← Grand Challenge REST API (no auth)
 ```
 
 ## Quick Start
@@ -71,6 +74,17 @@ On the first run, it scans the last **60 days**. Subsequent runs only look for d
 KAGGLE_API_TOKEN=your_kaggle_api_token
 ```
 
+### Synapse Personal Access Token
+
+1. Log in to [synapse.org](https://www.synapse.org)
+2. Click your profile icon → **Personal Access Tokens**
+3. Create a new token with **View** permission
+4. Copy the token and add it to your `.env` (or as a GitHub Actions secret):
+
+```
+SYNAPSE_AUTH_TOKEN=your_synapse_personal_access_token
+```
+
 ### Slack Webhook
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app (or use an existing one)
@@ -92,6 +106,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00.../B00.../xxxx
 |---|---|
 | `KAGGLE_API_TOKEN` | Your Kaggle API token |
 | `SLACK_WEBHOOK_URL` | Your Slack webhook URL |
+| `SYNAPSE_AUTH_TOKEN` | Your Synapse Personal Access Token (optional — Synapse scraper is skipped if omitted) |
 
 4. Configure Workflow Permissions (Crucial for database persistence):
    - Go to **Settings → Actions → General**.
@@ -104,35 +119,40 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00.../B00.../xxxx
 
 ---
 
+
+### TCIA & Grand Challenge
+
+No credentials are required — both platforms provide open REST APIs.
+
 ## How It Works
 
 ```
 ┌─────────────┐
 │  GitHub     │  Cron: 0 6 * * * (daily at 06:00 UTC)
 │  Actions    │──────────────────────────────────────┐
-└─────────────┘                                       │
-                                                      ▼
+└─────────────┘                                      │
+                                                     ▼
                                               ┌───────────────┐
                                               │   main.py     │
                                               └───────┬───────┘
                                                       │
-                        ┌──────────┬──────────┬───────┴────────┐
-                        ▼          ▼          ▼                ▼
-                    Kaggle    Hugging Face  Zenodo          PubMed
-                        │          │          │                │
-                        └──────────┴──────────┴────────────────┘
-                                              │
-                                              ▼
-                                     ┌─────────────────┐
-                                     │  SQLite Dedup   │
-                                     │  (seen_datasets)│
-                                     └────────┬────────┘
-                                              │ new only
-                                              ▼
-                                     ┌─────────────────┐
-                                     │  Slack Alert    │
-                                     │  (batched)      │
-                                     └─────────────────┘
+         ┌──────────┬──────────┬───────┬─────────┬──────────┬──────────┐
+         ▼          ▼          ▼       ▼         ▼          ▼          ▼
+     Kaggle   Hugging Face  Zenodo  PubMed    TCIA     Synapse  GrandChallenge
+         │          │          │       │         │          │          │
+         └──────────┴──────────┴───────┴─────────┴──────────┴──────────┘
+                                               │
+                                               ▼
+                                      ┌─────────────────┐
+                                      │  SQLite Dedup   │
+                                      │  (seen_datasets)│
+                                      └────────┬────────┘
+                                               │ new only
+                                               ▼
+                                      ┌─────────────────┐
+                                      │  Slack Alert    │
+                                      │  (batched)      │
+                                      └─────────────────┘
 ```
 
 ## License

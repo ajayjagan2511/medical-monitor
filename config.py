@@ -13,6 +13,12 @@ load_dotenv()
 KAGGLE_API_TOKEN = os.getenv("KAGGLE_API_TOKEN", "")
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "")
 
+# Synapse (Sage Bionetworks) — Personal Access Token
+# Required for the Synapse scraper; create at synapse.org → Profile → Settings → Access Tokens
+SYNAPSE_AUTH_TOKEN = os.getenv("SYNAPSE_AUTH_TOKEN", "")
+
+# TCIA and Grand Challenge use public REST APIs — no credentials required.
+
 # ──────────────────────────────────────────────
 #  Database
 # ──────────────────────────────────────────────

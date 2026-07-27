@@ -20,7 +20,15 @@ from config import TARGET_KEYWORDS, FIRST_RUN_LOOKBACK_DAYS
 from database import DatabaseManager
 from alerting import SlackAlerter
 from classifier import RELEVANCE_THRESHOLD
-from scrapers import KaggleScraper, HuggingFaceScraper, ZenodoScraper, PubMedScraper
+from scrapers import (
+    KaggleScraper,
+    HuggingFaceScraper,
+    ZenodoScraper,
+    PubMedScraper,
+    TCIAScraper,
+    SynapseScraper,
+    GrandChallengeScraper,
+)
 
 # ── Logging ───────────────────────────────────
 logging.basicConfig(
@@ -63,6 +71,9 @@ def main():
             HuggingFaceScraper(keywords=TARGET_KEYWORDS),
             ZenodoScraper(keywords=TARGET_KEYWORDS),
             PubMedScraper(keywords=TARGET_KEYWORDS),
+            TCIAScraper(keywords=TARGET_KEYWORDS),
+            SynapseScraper(keywords=TARGET_KEYWORDS),
+            GrandChallengeScraper(keywords=TARGET_KEYWORDS),
         ]
 
         # 4 ── Fetch → deduplicate → collect new
