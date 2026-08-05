@@ -1,6 +1,6 @@
 # 🏥 Medical Image Dataset Monitor
 
-An automated Python agent that scans **Kaggle**, **Hugging Face**, **Zenodo**, **PubMed**, **TCIA**, **Synapse**, and **Grand Challenge** daily for newly published medical image datasets and sends consolidated alerts to Slack.
+An automated Python agent that scans **Kaggle**, **Hugging Face**, **Zenodo**, **PubMed**, **TCIA**, **Synapse**, **Grand Challenge**, **Harvard Dataverse**, **Open-I**, **ISIC Archive**, **MIDRC**, and **Stanford AIMI** daily for newly published medical image datasets and sends consolidated alerts to Slack.
 
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
@@ -9,7 +9,7 @@ An automated Python agent that scans **Kaggle**, **Hugging Face**, **Zenodo**, *
 
 ## Features
 
-- **Multi-platform scanning** — queries **7 major data repositories** in a single run
+- **Multi-platform scanning** — queries **12 major data repositories** in a single run
 - **Targeted medical imaging keywords** — focuses exclusively on datasets for CT, Dermoscopy, Endoscopy, Fundus, Microscopy, MRI, OCT, OCTA, Ultrasound, X-Ray, Pathology, PET, Retinal image, Rhinoscopy, Histopathology, and Bronchoscopy (excludes non-dataset research papers).
 - **Deduplication** — SQLite-backed memory prevents repeat alerts across runs
 - **Batched Slack alerts** — one clean message per run, grouped by platform
@@ -31,7 +31,12 @@ main.py                     ← Orchestrator
     ├── pubmed_scraper.py   ← NCBI E-Utilities
     ├── tcia_scraper.py     ← TCIA Collection Manager API v2 (no auth)
     ├── synapse_scraper.py  ← Synapse REST API (requires PAT)
-    └── grandchallenge_scraper.py ← Grand Challenge REST API (no auth)
+    ├── grandchallenge_scraper.py ← Grand Challenge REST API (no auth)
+    ├── harvard_scraper.py  ← Harvard Dataverse REST API (no auth)
+    ├── openi_scraper.py    ← Open-I REST API (no auth)
+    ├── isic_scraper.py     ← ISIC Archive OpenAPI (no auth)
+    ├── midrc_scraper.py    ← MIDRC Gen3 GraphQL API (requires API key)
+    └── stanford_scraper.py ← Stanford AIMI HTML Scraper
 ```
 
 ## Quick Start
@@ -85,6 +90,17 @@ KAGGLE_API_TOKEN=your_kaggle_api_token
 SYNAPSE_AUTH_TOKEN=your_synapse_personal_access_token
 ```
 
+### MIDRC API Key
+
+1. Log in to the [MIDRC Data Commons](https://data.midrc.org/)
+2. Go to your Profile and click **Create API Key**
+3. Download the `credentials.json` file, and extract the `api_key` value.
+4. Copy the token and add it to your `.env` (or as a GitHub Actions secret):
+
+```
+MIDRC_AUTH_TOKEN=your_midrc_api_token
+```
+
 ### Slack Webhook
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app (or use an existing one)
@@ -107,6 +123,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00.../B00.../xxxx
 | `KAGGLE_API_TOKEN` | Your Kaggle API token |
 | `SLACK_WEBHOOK_URL` | Your Slack webhook URL |
 | `SYNAPSE_AUTH_TOKEN` | Your Synapse Personal Access Token (optional — Synapse scraper is skipped if omitted) |
+| `MIDRC_AUTH_TOKEN` | Your MIDRC API Key (optional — MIDRC scraper is skipped if omitted) |
 
 4. Configure Workflow Permissions (Crucial for database persistence):
    - Go to **Settings → Actions → General**.
@@ -129,31 +146,36 @@ No credentials are required — both platforms provide open REST APIs.
 ```
 ┌─────────────┐
 │  GitHub     │  Cron: 0 6 * * * (daily at 06:00 UTC)
-│  Actions    │──────────────────────────────────────┐
-└─────────────┘                                      │
-                                                     ▼
-                                              ┌───────────────┐
-                                              │   main.py     │
-                                              └───────┬───────┘
-                                                      │
-         ┌──────────┬──────────┬───────┬─────────┬──────────┬──────────┐
-         ▼          ▼          ▼       ▼         ▼          ▼          ▼
-     Kaggle   Hugging Face  Zenodo  PubMed    TCIA     Synapse  GrandChallenge
-         │          │          │       │         │          │          │
-         └──────────┴──────────┴───────┴─────────┴──────────┴──────────┘
-                                               │
-                                               ▼
-                                      ┌─────────────────┐
-                                      │  SQLite Dedup   │
-                                      │  (seen_datasets)│
-                                      └────────┬────────┘
-                                               │ new only
-                                               ▼
-                                      ┌─────────────────┐
-                                      │  Slack Alert    │
-                                      │  (batched)      │
-                                      └─────────────────┘
+│  Actions    │────────────────────────────┐
+└─────────────┘                            │
+                                           ▼
+                                    ┌───────────────┐
+                                    │   main.py     │
+                                    └───────┬───────┘
+                                            │
+            ┌─────────────────────────────────────────────────────────────┐
+            ▼                                                             ▼
+        [Kaggle, HuggingFace, Zenodo, PubMed, TCIA, Synapse, GrandChallenge,
+        Harvard, Open-I, ISIC, MIDRC, Stanford AIMI]
+            │                                                             │
+            └─────────────────────────────┬───────────────────────────────┘
+                                            │
+                                            ▼
+                                    ┌─────────────────┐
+                                    │  SQLite Dedup   │
+                                    │  (seen_datasets)│
+                                    └────────┬────────┘
+                                            │ new only
+                                            ▼
+                                    ┌─────────────────┐
+                                    │  Slack Alert    │
+                                    │  (batched)      │
+                                    └─────────────────┘
 ```
+
+## Future Platforms (Requires Custom Integration)
+
+> Note: Repositories like **MedMNIST, ADNI, OASIS Brains, and HCP** are highly relevant but currently lack straightforward, open JSON REST APIs for querying newly published datasets (e.g., they require complex GraphQL queries, data use agreements, or HTML scraping). We plan to add bespoke integrations for these in the future!
 
 ## License
 

@@ -139,6 +139,10 @@ class ClassificationResult:
     modality: str           # e.g. "MRI", "CT Scan", "Unknown"
     relevance_score: int    # 0-100
     is_relevant: bool       # score >= threshold
+    body_part: str = ""
+    anatomical_area: str = ""
+    broad_modality: str = ""
+    dataset_size: str = ""
 
 
 def detect_modality(text: str) -> str:
@@ -201,15 +205,102 @@ def compute_relevance(title: str, platform: str = "") -> int:
     return min(score, 100)
 
 
+# ──────────────────────────────────────────────
+#  Metadata Extraction Heuristics
+# ──────────────────────────────────────────────
+
+BODY_PARTS = {
+    "Brain": [r"\bbrain", r"\bcerebral", r"\bhead", r"\bcranial"],
+    "Chest/Lung": [r"\bchest", r"\blung", r"\bpulmonary", r"\bthorax", r"\bthoracic"],
+    "Heart": [r"\bheart", r"\bcardiac", r"\bcoronary", r"\becho\b"],
+    "Liver": [r"\bliver", r"\bhepatic"],
+    "Kidney": [r"\bkidney", r"\brenal"],
+    "Skin": [r"\bskin", r"\bmelanoma", r"\bderm", r"\blesion", r"\bnevus"],
+    "Eye": [r"\beye", r"\bretina", r"\bfundus", r"\bmacula", r"\bocular", r"\bglaucoma"],
+    "Bone/Joint": [r"\bbone", r"\bknee", r"\bspine", r"\bjoint", r"\bmsk", r"\bskeletal", r"\bmusculoskeletal", r"\bortho"],
+    "Breast": [r"\bbreast", r"\bmamm"],
+    "Prostate": [r"\bprostate"],
+    "Pelvis": [r"\bpelvi"],
+    "Abdomen": [r"\babdomen", r"\babdominal", r"\bgastro", r"\bbowel", r"\bcolon"]
+}
+
+ANATOMICAL_AREAS = {
+    "Head and Neck": [r"\bbrain", r"\bhead", r"\bcranial", r"\bneck", r"\bthyroid", r"\beye", r"\bretina", r"\bfundus", r"\bmacula"],
+    "Thorax": [r"\bchest", r"\blung", r"\bthorax", r"\bthoracic", r"\bpulmonary", r"\bheart", r"\bcardiac", r"\bbreast", r"\bmamm"],
+    "Abdomen": [r"\bliver", r"\bkidney", r"\brenal", r"\babdomen", r"\babdominal", r"\bgastro", r"\bbowel", r"\bcolon", r"\bhepatic"],
+    "Pelvis": [r"\bpelvi", r"\bprostate"],
+    "Limbs/Joints": [r"\bknee", r"\bjoint", r"\barm", r"\bleg", r"\bfoot", r"\bhand"],
+    "Skin": [r"\bskin", r"\bmelanoma", r"\bderm"]
+}
+
+BROAD_MODALITIES_LIST = [
+    "CT", "Dermoscopy", "Endoscopy", "Fundus", "Microscopy", 
+    "MRI", "OCT", "OCTA", "Ultrasound", "X-Ray"
+]
+
+def extract_broad_modality(text: str) -> str:
+    found = []
+    text_lower = text.lower()
+    
+    # Simple heuristic checks
+    if "mri" in text_lower or "magnetic resonance" in text_lower:
+        found.append("MRI")
+    if "ct" in text_lower.split() or "tomography" in text_lower or "cbct" in text_lower:
+        found.append("CT")
+    if "x-ray" in text_lower or "xray" in text_lower or "radiograph" in text_lower or "dexa" in text_lower or "mammogra" in text_lower or "fluoroscop" in text_lower:
+        found.append("X-Ray")
+    if "ultrasound" in text_lower or "echo" in text_lower.split() or "sonograph" in text_lower or "pocus" in text_lower:
+        found.append("Ultrasound")
+    if "dermoscop" in text_lower or "dermatoscop" in text_lower or "epiluminescence" in text_lower:
+        found.append("Dermoscopy")
+    if "endoscop" in text_lower or "colonoscop" in text_lower or "gastroscop" in text_lower or "bronchoscop" in text_lower or "rhinoscop" in text_lower:
+        found.append("Endoscopy")
+    if "fundus" in text_lower or "retina" in text_lower or "macula" in text_lower:
+        found.append("Fundus")
+    if "microscop" in text_lower or "wsi" in text_lower or "slide" in text_lower or "patholog" in text_lower or "histopatholog" in text_lower:
+        found.append("Microscopy")
+    if "oct" in text_lower.split() or "optical coherence" in text_lower:
+        found.append("OCT")
+    if "octa" in text_lower.split() or "oct angiography" in text_lower:
+        found.append("OCTA")
+        
+    return ", ".join(list(dict.fromkeys(found)))
+
+def extract_size(text: str) -> str:
+    # e.g., "10,000 images", "500 scans", "300 patients"
+    match = re.search(r"(\d+(?:,\d+)*)\s*(images|scans|videos|cases|patients|studies|slices|volumes)", text, re.IGNORECASE)
+    if match:
+        return match.group(0)
+    return ""
+
+def extract_body_part(text: str) -> str:
+    for part, patterns in BODY_PARTS.items():
+        for pat in patterns:
+            if re.search(pat, text, re.IGNORECASE):
+                return part
+    return ""
+
+def extract_anatomical_area(text: str) -> str:
+    for area, patterns in ANATOMICAL_AREAS.items():
+        for pat in patterns:
+            if re.search(pat, text, re.IGNORECASE):
+                return area
+    return ""
+
+
 def classify(title: str, platform: str = "") -> ClassificationResult:
     """
-    Full classification: detect modality + compute relevance.
+    Full classification: detect modality, compute relevance, and extract metadata.
     """
     modality = detect_modality(title)
     relevance = compute_relevance(title, platform)
-
+    
     return ClassificationResult(
         modality=modality,
         relevance_score=relevance,
         is_relevant=relevance >= RELEVANCE_THRESHOLD,
+        body_part=extract_body_part(title),
+        anatomical_area=extract_anatomical_area(title),
+        broad_modality=extract_broad_modality(title),
+        dataset_size=extract_size(title)
     )

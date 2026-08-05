@@ -64,13 +64,26 @@ class DatabaseManager:
 
     # ── dataset tracking ──────────────────────
 
-    def is_seen(self, dataset_id: str) -> bool:
-        """Return True if this dataset_id has already been recorded."""
+    def is_seen(self, dataset_id: str, url: str = None) -> bool:
+        """Return True if this dataset_id or url has already been recorded."""
         cursor = self.conn.cursor()
+        
+        # Check by dataset_id
         cursor.execute(
             "SELECT 1 FROM seen_datasets WHERE dataset_id = ?", (dataset_id,)
         )
-        return cursor.fetchone() is not None
+        if cursor.fetchone() is not None:
+            return True
+            
+        # Check by url if provided
+        if url:
+            cursor.execute(
+                "SELECT 1 FROM seen_datasets WHERE url = ?", (url,)
+            )
+            if cursor.fetchone() is not None:
+                return True
+                
+        return False
 
     def mark_seen(self, platform: str, dataset_id: str, title: str, url: str):
         """Insert a new dataset record (silently ignores duplicates)."""

@@ -14,6 +14,8 @@ Entry point. Orchestrates the full pipeline:
 
 import logging
 import sys
+import os
+import pandas as pd
 from datetime import datetime, timedelta, timezone
 
 from config import TARGET_KEYWORDS, FIRST_RUN_LOOKBACK_DAYS
@@ -28,6 +30,11 @@ from scrapers import (
     TCIAScraper,
     SynapseScraper,
     GrandChallengeScraper,
+    HarvardScraper,
+    OpenIScraper,
+    ISICScraper,
+    MIDRCScraper,
+    StanfordScraper,
 )
 
 # ── Logging ───────────────────────────────────
@@ -37,6 +44,27 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("monitor")
+
+
+MASTER_EXCEL_PATH = "Medical Imaging Datasets.xlsx"
+NEW_DATASETS_EXCEL_PATH = "new_datasets.xlsx"
+
+def load_ignored_urls() -> set[str]:
+    ignored = set()
+    if os.path.exists(MASTER_EXCEL_PATH):
+        try:
+            df = pd.read_excel(MASTER_EXCEL_PATH, sheet_name=0)
+            if "Website" in df.columns:
+                urls = df["Website"].dropna().tolist()
+            else:
+                urls = df.iloc[:, 26].dropna().tolist()
+                
+            for u in urls:
+                ignored.add(str(u).strip())
+            logger.info(f"Loaded {len(ignored)} ignored URLs from {MASTER_EXCEL_PATH}")
+        except Exception as e:
+            logger.error(f"Failed to load master excel for dedup: {e}")
+    return ignored
 
 
 def main():
@@ -66,6 +94,8 @@ def main():
             )
 
         # 3 ── Scrapers
+        ignored_urls = load_ignored_urls()
+        
         scrapers = [
             KaggleScraper(keywords=TARGET_KEYWORDS),
             HuggingFaceScraper(keywords=TARGET_KEYWORDS),
@@ -74,6 +104,11 @@ def main():
             TCIAScraper(keywords=TARGET_KEYWORDS),
             SynapseScraper(keywords=TARGET_KEYWORDS),
             GrandChallengeScraper(keywords=TARGET_KEYWORDS),
+            HarvardScraper(keywords=TARGET_KEYWORDS),
+            OpenIScraper(keywords=TARGET_KEYWORDS),
+            ISICScraper(keywords=TARGET_KEYWORDS),
+            MIDRCScraper(keywords=TARGET_KEYWORDS),
+            StanfordScraper(keywords=TARGET_KEYWORDS),
         ]
 
         # 4 ── Fetch → deduplicate → collect new
@@ -88,7 +123,11 @@ def main():
                 )
 
                 for ds in results:
-                    if not db.is_seen(ds.dataset_id):
+                    ds_url_clean = str(ds.url).strip()
+                    if ds_url_clean in ignored_urls:
+                        continue
+                        
+                    if not db.is_seen(ds.dataset_id, ds.url):
                         db.mark_seen(ds.platform, ds.dataset_id, ds.title, ds.url)
                         new_datasets.append(ds)
 
@@ -113,6 +152,33 @@ def main():
         if relevant_datasets:
             alerter = SlackAlerter()
             alerter.send_batch(relevant_datasets)
+            
+            # 6.5 ── Append to Excel
+            try:
+                new_data = []
+                for ds in relevant_datasets:
+                    new_data.append({
+                        "Name": ds.title,
+                        "Body Part": getattr(ds, "body_part", ""),
+                        "Anatomical Area": getattr(ds, "anatomical_area", ""),
+                        "Modality": ds.data_type,
+                        "Broad Modality": getattr(ds, "broad_modality", ""),
+                        "Dataset Size": getattr(ds, "dataset_size", ""),
+                        "Website": ds.url
+                    })
+                new_df = pd.DataFrame(new_data)
+                
+                if os.path.exists(NEW_DATASETS_EXCEL_PATH):
+                    existing_df = pd.read_excel(NEW_DATASETS_EXCEL_PATH)
+                    combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+                    combined_df.to_excel(NEW_DATASETS_EXCEL_PATH, index=False)
+                else:
+                    new_df.to_excel(NEW_DATASETS_EXCEL_PATH, index=False)
+                    
+                logger.info(f"Appended {len(relevant_datasets)} dataset(s) to {NEW_DATASETS_EXCEL_PATH}")
+            except Exception as e:
+                logger.error(f"Failed to append to {NEW_DATASETS_EXCEL_PATH}: {e}")
+                
         else:
             logger.info("No relevant datasets — no alert sent.")
 
