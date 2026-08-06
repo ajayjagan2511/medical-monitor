@@ -68,19 +68,31 @@ class SlackAlerter:
             return False
 
         payload = self._build_payload(datasets)
+        blocks = payload["blocks"]
+        
+        success = True
+        # Slack limit is 50 blocks per message, so we chunk safely at 45
+        for i in range(0, len(blocks), 45):
+            chunk = blocks[i:i + 45]
+            try:
+                resp = requests.post(
+                    self.webhook_url,
+                    json={"blocks": chunk},
+                    headers={"Content-Type": "application/json"},
+                    timeout=15,
+                )
+                resp.raise_for_status()
+            except requests.RequestException as e:
+                logger.error(f"✗ Failed to send Slack alert chunk: {e}")
+                if e.response is not None:
+                    logger.error(f"Slack response: {e.response.text}")
+                success = False
+                break
 
-        try:
-            resp = requests.post(
-                self.webhook_url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=15,
-            )
-            resp.raise_for_status()
+        if success:
             logger.info(f"✓ Slack alert sent ({len(datasets)} datasets)")
             return True
-        except requests.RequestException as e:
-            logger.error(f"✗ Failed to send Slack alert: {e}")
+        else:
             self._print_to_console(datasets)
             return False
 
